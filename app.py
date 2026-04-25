@@ -1,7 +1,7 @@
 """
 番茄Todo - Flask 后端
 提供任务增删改查、计时历史记录 API
-数据存储于本地 JSON 文件
+数据存储于本地 JSON 文件，带有数据保护
 """
 import os
 import json
@@ -18,19 +18,45 @@ os.makedirs(DATA_DIR, exist_ok=True)
 
 
 def read_data():
-    """读取 JSON 数据，若文件不存在则创建默认结构"""
+    """读取 JSON 数据，若文件不存在或损坏则自动创建默认结构"""
     if not os.path.exists(DATA_FILE):
         default = {"tasks": [], "sessions": []}
         write_data(default)
         return default
-    with open(DATA_FILE, 'r', encoding='utf-8') as f:
-        return json.load(f)
+
+    try:
+        with open(DATA_FILE, 'r', encoding='utf-8') as f:
+            content = f.read().strip()
+            if not content:
+                # 文件为空，写入默认数据
+                default = {"tasks": [], "sessions": []}
+                write_data(default)
+                return default
+            return json.loads(content)
+    except (json.JSONDecodeError, ValueError) as e:
+        print(f"⚠️ data.json 数据损坏，正在重置为默认值: {e}")
+        # 备份损坏的文件（可选）
+        backup_name = DATA_FILE + '.backup'
+        try:
+            os.rename(DATA_FILE, backup_name)
+            print(f"已将损坏数据备份至 {backup_name}")
+        except Exception:
+            pass
+        default = {"tasks": [], "sessions": []}
+        write_data(default)
+        return default
 
 
 def write_data(data):
-    """将数据写入 JSON 文件"""
-    with open(DATA_FILE, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    """将数据安全写入 JSON 文件"""
+    try:
+        # 先写入临时文件，再原子替换，防止写入中断导致数据损坏
+        tmp_file = DATA_FILE + '.tmp'
+        with open(tmp_file, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        os.replace(tmp_file, DATA_FILE)  # Windows 也支持的原子操作
+    except Exception as e:
+        print(f"❌ 写入数据失败: {e}")
 
 
 # ==================== 页面路由 ====================
@@ -58,7 +84,6 @@ def add_task():
 
     data = read_data()
     tasks = data.get('tasks', [])
-    # 生成自增 ID
     new_id = max([t['id'] for t in tasks], default=0) + 1
     new_task = {
         'id': new_id,
@@ -110,7 +135,6 @@ def get_history():
     count = len(today_focus)
     total_minutes = sum(s['duration'] for s in today_focus)
 
-    # 取最近 10 条记录
     recent = sorted(sessions, key=lambda x: x['timestamp'], reverse=True)[:10]
     return jsonify({
         'today_count': count,
