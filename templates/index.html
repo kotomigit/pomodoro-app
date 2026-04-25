@@ -10,16 +10,14 @@
     <div class="container">
         <h1>🍅 番茄Todo</h1>
 
-        <!-- 计时器区域 -->
+        <!-- 计时器模块 -->
         <div class="timer-section">
             <div class="mode-tabs">
                 <button class="mode-btn active" data-mode="focus">专注 25分钟</button>
                 <button class="mode-btn" data-mode="shortBreak">短休息 5分钟</button>
                 <button class="mode-btn" data-mode="longBreak">长休息 15分钟</button>
             </div>
-
             <div class="timer-display" id="timerDisplay">25:00</div>
-
             <div class="timer-controls">
                 <button id="startPauseBtn" class="btn-primary">开始</button>
                 <button id="resetBtn">重置</button>
@@ -37,11 +35,11 @@
         <div class="task-section">
             <h2>📋 任务列表</h2>
             <div class="add-task">
-                <input type="text" id="taskInput" placeholder="添加新任务...">
+                <input type="text" id="taskInput" placeholder="添加新任务..." autocomplete="off">
                 <button id="addTaskBtn">添加</button>
             </div>
             <ul id="taskList" class="task-list">
-                <!-- 任务动态渲染 -->
+                <!-- 动态渲染任务 -->
             </ul>
         </div>
 

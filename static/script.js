@@ -1,4 +1,5 @@
-// script.js - 前端核心逻辑
+// 番茄Todo - 前端核心逻辑
+
 // ========== 全局状态 ==========
 const TIMER_MODES = {
     focus: { minutes: 25, next: 'shortBreak' },
@@ -6,13 +7,13 @@ const TIMER_MODES = {
     longBreak: { minutes: 15, next: 'focus' }
 };
 
-let currentMode = 'focus';              // 当前模式
-let timerSeconds = 25 * 60;            // 剩余秒数
-let timerInterval = null;              // setInterval ID
-let isRunning = false;                 // 是否正在计时
-let focusCountToday = 0;               // 今日专注次数（用于跳过逻辑）
+let currentMode = 'focus';
+let timerSeconds = 25 * 60;
+let timerInterval = null;
+let isRunning = false;
+let focusCountToday = 0;  // 从后端获取的今日专注次数
 
-// ========== DOM 元素 ==========
+// ========== DOM元素 ==========
 const timerDisplay = document.getElementById('timerDisplay');
 const startPauseBtn = document.getElementById('startPauseBtn');
 const resetBtn = document.getElementById('resetBtn');
@@ -38,12 +39,25 @@ function updateDisplay() {
     timerDisplay.textContent = formatTime(timerSeconds);
 }
 
-// 播放提示音（使用 Web Audio API）
+// 通用 Toast 提示
+function showToast(msg, isError = false) {
+    // 移除已有 toast
+    const old = document.querySelector('.toast-msg');
+    if (old) old.remove();
+
+    const toast = document.createElement('div');
+    toast.className = 'toast-msg';
+    toast.textContent = msg;
+    toast.style.backgroundColor = isError ? '#e74c3c' : '#2ecc71';
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+}
+
+// Web Audio 提示音
 function playAlert() {
     try {
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        // 简单的三音旋律
-        const notes = [880, 1100, 1320]; // 频率 A5, C#6, E6
+        const notes = [880, 1100, 1320];
         notes.forEach((freq, i) => {
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
@@ -61,48 +75,16 @@ function playAlert() {
     }
 }
 
-// 浏览器通知 (需要用户授权)
+// 浏览器通知
 function showNotification(title, body) {
     if (Notification.permission === 'granted') {
         new Notification(title, { body });
     } else if (Notification.permission === 'default') {
         Notification.requestPermission().then(perm => {
-            if (perm === 'granted') {
-                new Notification(title, { body });
-            }
+            if (perm === 'granted') new Notification(title, { body });
         });
     }
 }
-
-// 页面内弹窗提示（避免过于干扰，使用顶部浮动消息）
-function showToast(msg) {
-    // 移除已有 toast
-    const old = document.querySelector('.toast-msg');
-    if (old) old.remove();
-    const toast = document.createElement('div');
-    toast.className = 'toast-msg';
-    toast.textContent = msg;
-    toast.style.cssText = `
-        position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
-        background: #e74c3c; color: white; padding: 12px 30px;
-        border-radius: 40px; font-size: 1.2em; box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-        z-index: 999; animation: fadeInOut 3s forwards;
-    `;
-    document.body.appendChild(toast);
-    setTimeout(() => toast.remove(), 3000);
-}
-
-// 添加动画样式
-const styleSheet = document.createElement('style');
-styleSheet.textContent = `
-    @keyframes fadeInOut {
-        0% { opacity: 0; transform: translateX(-50%) translateY(-10px); }
-        10% { opacity: 1; transform: translateX(-50%) translateY(0); }
-        90% { opacity: 1; transform: translateX(-50%) translateY(0); }
-        100% { opacity: 0; transform: translateX(-50%) translateY(-10px); }
-    }
-`;
-document.head.appendChild(styleSheet);
 
 // ========== 计时器核心逻辑 ==========
 function startTimer() {
@@ -117,7 +99,6 @@ function startTimer() {
             timerInterval = null;
             isRunning = false;
             startPauseBtn.textContent = '开始';
-            // 计时结束处理
             handleTimerEnd();
         }
     }, 1000);
@@ -139,22 +120,12 @@ function resetTimer() {
 
 function skipToNext() {
     pauseTimer();
+    // 根据当前模式选择下一个模式（不增加专注计数）
     let nextMode;
-    // 根据当前模式及今日专注次数决定下一个模式
     if (currentMode === 'focus') {
-        // 专注后：每完成4个专注→长休息，否则短休息
-        // 注意：下个模式仅用于设置，不增加 focusCountToday
-        let nextFocusCount = focusCountToday + 1; // 假设本次专注已完成？但跳过时可能未完成，保持不变
-        // 实际上这里的逻辑是：用户跳过当前时段，不记录专注完成，所以不增加计数
-        // 按传统规则：完成一个 focus 后应进入 break；跳过时视为放弃，但仍切换到合理的下一个模式
-        // 简化处理：跳过专注→短休息（不增加计数）
         nextMode = 'shortBreak';
-    } else if (currentMode === 'shortBreak') {
-        nextMode = 'focus';
-    } else if (currentMode === 'longBreak') {
-        nextMode = 'focus';
     } else {
-        nextMode = 'focus';
+        nextMode = 'focus';  // 所有休息结束后回到专注
     }
     switchMode(nextMode);
 }
@@ -163,11 +134,9 @@ function switchMode(mode) {
     currentMode = mode;
     timerSeconds = TIMER_MODES[mode].minutes * 60;
     updateDisplay();
-    // 更新模式按钮激活状态
     modeBtns.forEach(btn => {
         btn.classList.toggle('active', btn.dataset.mode === mode);
     });
-    // 停止计时
     pauseTimer();
 }
 
@@ -177,7 +146,6 @@ async function handleTimerEnd() {
     showToast(`⏰ ${currentMode === 'focus' ? '专注' : '休息'}时间结束！`);
     showNotification('番茄钟', `您的${currentMode === 'focus' ? '专注' : '休息'}时段已完成`);
 
-    // 记录到后端
     const duration = TIMER_MODES[currentMode].minutes;
     try {
         const res = await fetch('/api/history', {
@@ -187,7 +155,6 @@ async function handleTimerEnd() {
         });
         if (res.ok) {
             const data = await res.json();
-            // 更新今日统计（无论类型，但部分可能只关心专注统计）
             if (currentMode === 'focus') {
                 focusCountToday = data.today_count;
             }
@@ -195,47 +162,45 @@ async function handleTimerEnd() {
             loadHistory();  // 刷新近期记录
         }
     } catch (e) {
-        console.error('记录失败:', e);
+        console.error('记录会话失败:', e);
     }
-
-    // 不自动跳转，等待用户操作
 }
 
-// ========== UI交互 ==========
+// ========== UI交互绑定 ==========
 startPauseBtn.addEventListener('click', () => {
-    if (isRunning) {
-        pauseTimer();
-    } else {
-        startTimer();
-    }
+    if (isRunning) pauseTimer();
+    else startTimer();
 });
 
 resetBtn.addEventListener('click', resetTimer);
-
 skipBtn.addEventListener('click', skipToNext);
 
 modeBtns.forEach(btn => {
     btn.addEventListener('click', () => {
         const mode = btn.dataset.mode;
-        if (mode !== currentMode) {
-            switchMode(mode);
-        }
+        if (mode !== currentMode) switchMode(mode);
     });
 });
 
-// ========== 任务管理 ==========
+// ========== 任务 CRUD + 刷新列表（修复重点） ==========
 async function loadTasks() {
     try {
         const res = await fetch('/api/tasks');
+        if (!res.ok) throw new Error('网络错误');
         const tasks = await res.json();
         renderTasks(tasks);
     } catch (e) {
         console.error('加载任务失败', e);
+        showToast('加载任务失败', true);
     }
 }
 
 function renderTasks(tasks) {
     taskList.innerHTML = '';
+    if (tasks.length === 0) {
+        taskList.innerHTML = '<li class="task-item" style="justify-content:center; color:#999;">还没有任务，赶快添加吧~</li>';
+        return;
+    }
     tasks.forEach(task => {
         const li = document.createElement('li');
         li.className = 'task-item';
@@ -247,15 +212,16 @@ function renderTasks(tasks) {
         taskList.appendChild(li);
     });
 
-    // 绑定事件
+    // 绑定完成切换事件
     document.querySelectorAll('.task-checkbox').forEach(cb => {
         cb.addEventListener('change', async (e) => {
             const id = e.target.dataset.id;
             await toggleTask(id);
-            loadTasks(); // 刷新列表
+            loadTasks();   // 重新渲染列表保证状态一致
         });
     });
 
+    // 绑定删除事件
     document.querySelectorAll('.delete-btn').forEach(btn => {
         btn.addEventListener('click', async (e) => {
             const id = e.target.dataset.id;
@@ -266,34 +232,64 @@ function renderTasks(tasks) {
 }
 
 async function addTask(text) {
-    await fetch('/api/tasks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text })
-    });
-    loadTasks();
+    try {
+        const res = await fetch('/api/tasks', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text })
+        });
+        if (res.ok) {
+            showToast('✅ 任务已添加');
+            await loadTasks();   // 等待刷新完成
+        } else {
+            const err = await res.json();
+            showToast('添加失败：' + (err.error || '未知错误'), true);
+        }
+    } catch (e) {
+        console.error('添加任务失败', e);
+        showToast('添加失败，请重试', true);
+    }
 }
 
 async function toggleTask(id) {
-    await fetch(`/api/tasks/${id}`, { method: 'PUT' });
+    try {
+        const res = await fetch(`/api/tasks/${id}`, { method: 'PUT' });
+        if (!res.ok) {
+            const err = await res.json();
+            showToast('操作失败：' + err.error, true);
+        }
+    } catch (e) {
+        console.error('切换任务状态失败', e);
+    }
 }
 
 async function deleteTask(id) {
-    await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
+    try {
+        const res = await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+            showToast('🗑️ 任务已删除');
+        } else {
+            const err = await res.json();
+            showToast('删除失败：' + err.error, true);
+        }
+    } catch (e) {
+        console.error('删除任务失败', e);
+    }
 }
 
+// 输入框添加任务
 addTaskBtn.addEventListener('click', () => {
     const text = taskInput.value.trim();
-    if (text) {
-        addTask(text);
-        taskInput.value = '';
+    if (!text) {
+        showToast('请输入任务内容', true);
+        return;
     }
+    addTask(text);
+    taskInput.value = '';
 });
 
 taskInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-        addTaskBtn.click();
-    }
+    if (e.key === 'Enter') addTaskBtn.click();
 });
 
 function escapeHtml(text) {
@@ -306,6 +302,7 @@ function escapeHtml(text) {
 async function loadHistory() {
     try {
         const res = await fetch('/api/history');
+        if (!res.ok) throw new Error('网络错误');
         const data = await res.json();
         updateStats(data.today_count, data.today_minutes);
         renderRecentSessions(data.recent_sessions);
@@ -317,7 +314,6 @@ async function loadHistory() {
 function updateStats(count, minutes) {
     todayCountEl.textContent = count;
     todayMinutesEl.textContent = minutes;
-    // 更新全局变量（用于跳过逻辑）
     focusCountToday = count;
 }
 
@@ -340,13 +336,11 @@ function renderRecentSessions(sessions) {
 
 // ========== 初始化 ==========
 async function init() {
-    // 请求通知权限（静默）
     if (Notification.permission === 'default') {
         Notification.requestPermission();
     }
     await loadTasks();
     await loadHistory();
-    // 设置默认模式显示
     switchMode('focus');
 }
 

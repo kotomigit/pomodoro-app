@@ -1,4 +1,8 @@
-# app.py - Flask 后端，提供 API 和数据存储
+"""
+番茄Todo - Flask 后端
+提供任务增删改查、计时历史记录 API
+数据存储于本地 JSON 文件
+"""
 import os
 import json
 from datetime import datetime, date
@@ -6,15 +10,15 @@ from flask import Flask, render_template, request, jsonify
 
 app = Flask(__name__)
 
-# 数据文件路径
 DATA_DIR = 'data'
 DATA_FILE = os.path.join(DATA_DIR, 'data.json')
 
-# 确保 data 目录存在
+# 确保数据目录存在
 os.makedirs(DATA_DIR, exist_ok=True)
 
+
 def read_data():
-    """读取数据文件，若不存在则返回默认结构"""
+    """读取 JSON 数据，若文件不存在则创建默认结构"""
     if not os.path.exists(DATA_FILE):
         default = {"tasks": [], "sessions": []}
         write_data(default)
@@ -22,27 +26,31 @@ def read_data():
     with open(DATA_FILE, 'r', encoding='utf-8') as f:
         return json.load(f)
 
+
 def write_data(data):
-    """写入数据文件"""
+    """将数据写入 JSON 文件"""
     with open(DATA_FILE, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
-# ========== 页面路由 ==========
+
+# ==================== 页面路由 ====================
 @app.route('/')
 def index():
-    """返回前端页面"""
     return render_template('index.html')
 
-# ========== 任务 API ==========
+
+# ==================== 任务 API ====================
 @app.route('/api/tasks', methods=['GET'])
 def get_tasks():
-    """获取所有任务"""
+    """返回所有任务"""
     data = read_data()
-    return jsonify(data.get('tasks', []))
+    tasks = data.get('tasks', [])
+    return jsonify(tasks)
+
 
 @app.route('/api/tasks', methods=['POST'])
 def add_task():
-    """添加新任务"""
+    """新增任务"""
     req = request.get_json()
     text = req.get('text', '').strip()
     if not text:
@@ -50,7 +58,7 @@ def add_task():
 
     data = read_data()
     tasks = data.get('tasks', [])
-    # 生成简单递增 ID
+    # 生成自增 ID
     new_id = max([t['id'] for t in tasks], default=0) + 1
     new_task = {
         'id': new_id,
@@ -61,6 +69,7 @@ def add_task():
     data['tasks'] = tasks
     write_data(data)
     return jsonify(new_task), 201
+
 
 @app.route('/api/tasks/<int:task_id>', methods=['PUT'])
 def toggle_task(task_id):
@@ -74,6 +83,7 @@ def toggle_task(task_id):
             return jsonify(task)
     return jsonify({'error': '任务不存在'}), 404
 
+
 @app.route('/api/tasks/<int:task_id>', methods=['DELETE'])
 def delete_task(task_id):
     """删除任务"""
@@ -86,36 +96,35 @@ def delete_task(task_id):
     write_data(data)
     return jsonify({'success': True})
 
-# ========== 历史与统计 API ==========
+
+# ==================== 历史与统计 API ====================
 @app.route('/api/history', methods=['GET'])
 def get_history():
-    """获取今日专注记录统计"""
+    """获取今日统计和近期会话"""
     data = read_data()
     sessions = data.get('sessions', [])
-    today_str = date.today().isoformat()  # 格式：2026-04-25
+    today_str = date.today().isoformat()
 
-    # 筛选今日的专注会话
     today_focus = [s for s in sessions
                    if s['type'] == 'focus' and s['timestamp'][:10] == today_str]
-
     count = len(today_focus)
     total_minutes = sum(s['duration'] for s in today_focus)
 
-    # 返回所有会话用于日志展示（近10条）
+    # 取最近 10 条记录
     recent = sorted(sessions, key=lambda x: x['timestamp'], reverse=True)[:10]
-
     return jsonify({
         'today_count': count,
         'today_minutes': total_minutes,
         'recent_sessions': recent
     })
 
+
 @app.route('/api/history', methods=['POST'])
 def add_session():
-    """记录一次完成的专注或休息（前端在计时结束后调用）"""
+    """添加一条会话记录（计时结束时调用）"""
     req = request.get_json()
-    session_type = req.get('type', 'focus')      # focus / short_break / long_break
-    duration = req.get('duration', 25)           # 分钟
+    session_type = req.get('type', 'focus')
+    duration = req.get('duration', 25)
 
     data = read_data()
     sessions = data.get('sessions', [])
@@ -128,16 +137,14 @@ def add_session():
     data['sessions'] = sessions
     write_data(data)
 
-    # 计算今日统计并返回
+    # 返回最新今日统计
     today_str = date.today().isoformat()
     today_focus = [s for s in sessions
                    if s['type'] == 'focus' and s['timestamp'][:10] == today_str]
     count = len(today_focus)
     total_minutes = sum(s['duration'] for s in today_focus)
-    return jsonify({
-        'today_count': count,
-        'today_minutes': total_minutes
-    })
+    return jsonify({'today_count': count, 'today_minutes': total_minutes})
+
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
