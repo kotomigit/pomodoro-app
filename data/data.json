@@ -2,21 +2,11 @@
   "tasks": [
     {
       "id": 1,
-      "text": "第一个任务",
+      "text": "n",
       "completed": false
     },
     {
       "id": 2,
-      "text": "11",
-      "completed": false
-    },
-    {
-      "id": 3,
-      "text": "这是第几个任务",
-      "completed": false
-    },
-    {
-      "id": 4,
       "text": "1",
       "completed": false
     }
