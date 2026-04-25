@@ -13,7 +13,6 @@ app = Flask(__name__)
 DATA_DIR = 'data'
 DATA_FILE = os.path.join(DATA_DIR, 'data.json')
 
-# 确保数据目录存在
 os.makedirs(DATA_DIR, exist_ok=True)
 
 
@@ -28,14 +27,12 @@ def read_data():
         with open(DATA_FILE, 'r', encoding='utf-8') as f:
             content = f.read().strip()
             if not content:
-                # 文件为空，写入默认数据
                 default = {"tasks": [], "sessions": []}
                 write_data(default)
                 return default
             return json.loads(content)
     except (json.JSONDecodeError, ValueError) as e:
         print(f"⚠️ data.json 数据损坏，正在重置为默认值: {e}")
-        # 备份损坏的文件（可选）
         backup_name = DATA_FILE + '.backup'
         try:
             os.rename(DATA_FILE, backup_name)
@@ -48,13 +45,10 @@ def read_data():
 
 
 def write_data(data):
-    """将数据安全写入 JSON 文件"""
+    """将数据写入 JSON 文件（直接覆盖，避免 Windows 权限问题）"""
     try:
-        # 先写入临时文件，再原子替换，防止写入中断导致数据损坏
-        tmp_file = DATA_FILE + '.tmp'
-        with open(tmp_file, 'w', encoding='utf-8') as f:
+        with open(DATA_FILE, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
-        os.replace(tmp_file, DATA_FILE)  # Windows 也支持的原子操作
     except Exception as e:
         print(f"❌ 写入数据失败: {e}")
 
@@ -68,7 +62,6 @@ def index():
 # ==================== 任务 API ====================
 @app.route('/api/tasks', methods=['GET'])
 def get_tasks():
-    """返回所有任务"""
     data = read_data()
     tasks = data.get('tasks', [])
     return jsonify(tasks)
@@ -76,7 +69,6 @@ def get_tasks():
 
 @app.route('/api/tasks', methods=['POST'])
 def add_task():
-    """新增任务"""
     req = request.get_json()
     text = req.get('text', '').strip()
     if not text:
@@ -98,7 +90,6 @@ def add_task():
 
 @app.route('/api/tasks/<int:task_id>', methods=['PUT'])
 def toggle_task(task_id):
-    """切换任务完成状态"""
     data = read_data()
     tasks = data.get('tasks', [])
     for task in tasks:
@@ -111,7 +102,6 @@ def toggle_task(task_id):
 
 @app.route('/api/tasks/<int:task_id>', methods=['DELETE'])
 def delete_task(task_id):
-    """删除任务"""
     data = read_data()
     tasks = data.get('tasks', [])
     new_tasks = [t for t in tasks if t['id'] != task_id]
@@ -125,7 +115,6 @@ def delete_task(task_id):
 # ==================== 历史与统计 API ====================
 @app.route('/api/history', methods=['GET'])
 def get_history():
-    """获取今日统计和近期会话"""
     data = read_data()
     sessions = data.get('sessions', [])
     today_str = date.today().isoformat()
@@ -145,7 +134,6 @@ def get_history():
 
 @app.route('/api/history', methods=['POST'])
 def add_session():
-    """添加一条会话记录（计时结束时调用）"""
     req = request.get_json()
     session_type = req.get('type', 'focus')
     duration = req.get('duration', 25)
@@ -161,7 +149,6 @@ def add_session():
     data['sessions'] = sessions
     write_data(data)
 
-    # 返回最新今日统计
     today_str = date.today().isoformat()
     today_focus = [s for s in sessions
                    if s['type'] == 'focus' and s['timestamp'][:10] == today_str]
