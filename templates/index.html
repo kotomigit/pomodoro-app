@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🍅 番茄Todo</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>🍅 番茄Todo</h1>
+
+        <!-- 计时器区域 -->
+        <div class="timer-section">
+            <div class="mode-tabs">
+                <button class="mode-btn active" data-mode="focus">专注 25分钟</button>
+                <button class="mode-btn" data-mode="shortBreak">短休息 5分钟</button>
+                <button class="mode-btn" data-mode="longBreak">长休息 15分钟</button>
+            </div>
+
+            <div class="timer-display" id="timerDisplay">25:00</div>
+
+            <div class="timer-controls">
+                <button id="startPauseBtn" class="btn-primary">开始</button>
+                <button id="resetBtn">重置</button>
+                <button id="skipBtn">跳过</button>
+            </div>
+        </div>
+
+        <!-- 今日统计 -->
+        <div class="stats-section">
+            <p>📊 今日专注：<span id="todayCount">0</span> 次</p>
+            <p>⏱️ 总时长：<span id="todayMinutes">0</span> 分钟</p>
+        </div>
+
+        <!-- 任务管理 -->
+        <div class="task-section">
+            <h2>📋 任务列表</h2>
+            <div class="add-task">
+                <input type="text" id="taskInput" placeholder="添加新任务...">
+                <button id="addTaskBtn">添加</button>
+            </div>
+            <ul id="taskList" class="task-list">
+                <!-- 任务动态渲染 -->
+            </ul>
+        </div>
+
+        <!-- 近期记录 -->
+        <div class="history-section">
+            <h2>📝 近期记录</h2>
+            <ul id="historyList" class="history-list">
+                <!-- 动态渲染 -->
+            </ul>
+        </div>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>
